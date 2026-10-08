@@ -156,7 +156,7 @@
     const d = await subject(code);
     const c = COLORS[code][0];
     const done = countDone(d.flat.map((l) => l.ref));
-    const notice = meta.theory ? "" : `<div class="notice"><div>📖</div><div><b>Syllabus view.</b> Every ATPL(A) learning objective for ${esc(meta.name)} is listed, so you can work through the syllabus and tick objectives off. Written theory for this subject hasn't been added yet.</div></div>`;
+    const notice = meta.theory ? "" : meta.book ? `<div class="notice"><div>📖</div><div><b>Covered in the study text.</b> Every ATPL(A) learning objective for ${esc(meta.name)} is explained in the study text above; each objective page links to the place where it is covered.</div></div>` : `<div class="notice"><div>📖</div><div><b>Syllabus view.</b> Every ATPL(A) learning objective for ${esc(meta.name)} is listed, so you can work through the syllabus and tick objectives off. Written theory for this subject hasn't been added yet.</div></div>`;
     const firstUndone = d.flat.find((l) => !studied.has(l.ref));
     main.innerHTML = `<div class="wrap" style="--c:${c}">
       <div class="hero">${tile(code, "lg")}<div style="flex:1;min-width:0"><div class="code">${code}</div><h1>${esc(meta.name)}</h1><div class="stats">${d.chapters.length} chapters · ${d.flat.length} objectives · ${done} studied</div></div>${ring(d.flat.length ? done / d.flat.length : 0, c)}</div>
@@ -223,7 +223,7 @@
     }
     const body = lo.html
       ? `<div class="prose">${lo.html}</div>`
-      : `<div class="empty-theory"><div class="ic"><svg viewBox="0 0 24 24" ${S}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M8 7h8M8 11h6"/></svg></div><h3>Theory not written yet</h3><p>This subject currently shows the official learning objective only. Use it as your checklist and tick it off once you've covered it.</p></div>`;
+      : inBook ? "" : `<div class="empty-theory"><div class="ic"><svg viewBox="0 0 24 24" ${S}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M8 7h8M8 11h6"/></svg></div><h3>Theory not written yet</h3><p>This subject currently shows the official learning objective only. Use it as your checklist and tick it off once you've covered it.</p></div>`;
     main.innerHTML = `<article class="read reader" style="--c:${c}">
       <nav class="crumbs"><a href="#/s/${code}">${code} ${esc(meta.name)}</a><span class="sep">›</span><span>${esc(ch.title)}</span>${lo.sub.title ? `<span class="sep">›</span><span>${esc(lo.sub.title)}</span>` : ""}</nav>
       <span class="lo-ref">LO ${lo.ref}</span>
