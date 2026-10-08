@@ -1,5 +1,5 @@
 /* Offline support: app shell + data are served from cache and refreshed in the background. */
-const CACHE = "atpl-v3";
+const CACHE = "atpl-v4";
 const SHELL = ["./", "index.html", "app.css", "app.js", "data/subjects.json", "manifest.webmanifest", "icons/icon-192.png"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => {
