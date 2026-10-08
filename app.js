@@ -485,6 +485,35 @@
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !lb.hidden) closeLightbox(); });
 
+  /* ---------- appearance: auto -> light -> dark ---------- */
+  const THEME_NEXT = { auto: "light", light: "dark", dark: "auto" };
+  const THEME_NAME = { auto: "Automatic", light: "Light", dark: "Dark" };
+  const sysDark = matchMedia("(prefers-color-scheme: dark)");
+  let themeMode = "auto", tipTimer, animTimer;
+  try { const v = localStorage.getItem("atpl-theme"); if (v === "light" || v === "dark") themeMode = v; } catch (e) {}
+  const themeBtn = $("#themeBtn"), themeTip = $("#themeTip");
+  function paintTheme() {
+    const dark = themeMode === "dark" || (themeMode === "auto" && sysDark.matches);
+    $("#themeColor").setAttribute("content", dark ? "#000000" : "#f5f5f7");
+    themeBtn.dataset.mode = themeMode;
+    themeBtn.setAttribute("aria-label", `Appearance: ${THEME_NAME[themeMode]}`);
+  }
+  function setTheme(m) {
+    const root = document.documentElement;
+    root.classList.add("theme-anim"); clearTimeout(animTimer);
+    animTimer = setTimeout(() => root.classList.remove("theme-anim"), 450);
+    themeMode = m;
+    if (m === "auto") delete root.dataset.theme; else root.dataset.theme = m;
+    try { if (m === "auto") localStorage.removeItem("atpl-theme"); else localStorage.setItem("atpl-theme", m); } catch (e) {}
+    paintTheme();
+    themeTip.textContent = THEME_NAME[m];
+    themeTip.classList.remove("show"); void themeTip.offsetWidth; themeTip.classList.add("show");
+    clearTimeout(tipTimer); tipTimer = setTimeout(() => themeTip.classList.remove("show"), 1400);
+  }
+  themeBtn.addEventListener("click", () => setTheme(THEME_NEXT[themeMode]));
+  sysDark.addEventListener?.("change", paintTheme);
+  paintTheme();
+
   /* ---------- boot ---------- */
   router();
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
