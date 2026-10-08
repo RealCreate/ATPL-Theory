@@ -316,3 +316,4 @@ mark { background: color-mix(in srgb, #ffd60a 45%, transparent); color: inherit;
 @media (prefers-reduced-transparency: reduce) {
   .bar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
+@media (min-width: 1024px) { .layout.with-side .prose figure.dia { margin: 4px -24px 24px; } }
