@@ -317,3 +317,64 @@ mark { background: color-mix(in srgb, #ffd60a 45%, transparent); color: inherit;
   .bar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 @media (min-width: 1024px) { .layout.with-side .prose figure.dia { margin: 4px -24px 24px; } }
+
+/* ---------- Study text (book) ---------- */
+.book-cta .tile svg { width: 26px; height: 26px; }
+.book-list { background: var(--bg-group); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.book-ch { display: flex; align-items: center; gap: 14px; padding: 14px 18px; color: var(--label); position: relative; }
+.book-ch + .book-ch::before { content: ""; position: absolute; top: 0; left: 64px; right: 0; border-top: .5px solid var(--sep); }
+.book-ch:active { background: var(--fill-2); }
+.book-ch .ch-title { flex: 1; min-width: 0; }
+.book-ch .ch-title .t { font-weight: 600; }
+.book-ch .ring { width: 30px; height: 30px; }
+.book-ch .ring circle { stroke-width: 6; }
+
+.book .kicker { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--c, var(--accent)); margin-top: 6px; }
+.book .reader h1, .reader.book h1 { margin-top: 6px; }
+.book .prose { font-size: 18px; line-height: 1.65; }
+@media (max-width: 767px) { .book .prose { font-size: 17px; } }
+.book .prose > p:first-child { font-size: 1.08em; color: var(--label-2); }
+.book .prose h3 { font-size: 22px; line-height: 1.25; font-weight: 700; letter-spacing: -0.02em; margin: 40px 0 12px; scroll-margin-top: 70px; }
+.book .prose h3.check { margin-top: 48px; padding-top: 24px; border-top: .5px solid var(--sep); }
+.book .prose h3.check + ol { counter-reset: q; padding-left: 0; list-style: none; }
+.book .prose h3.check + ol > li { counter-increment: q; position: relative; padding: 12px 14px 12px 46px; margin: 0 0 10px; background: var(--bg-elev); border-radius: 14px; box-shadow: var(--shadow); }
+.book .prose h3.check + ol > li::before { content: counter(q); position: absolute; left: 14px; top: 12px; width: 22px; height: 22px; border-radius: 50%; background: var(--c, var(--accent)); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+.book .prose h3.check + ol > li em { display: block; margin-top: 6px; color: var(--label-2); font-style: normal; font-size: .93em; }
+
+/* Learning-objective tags in small print */
+.lo-tag { display: inline-block; font: 500 10.5px/1.6 var(--mono); letter-spacing: 0; color: var(--label-3); background: var(--fill-2); padding: 0 5px; border-radius: 5px; margin-left: 3px; vertical-align: 1px; white-space: nowrap; transition: background .2s, color .2s; }
+.lo-tag:hover { color: var(--c, var(--accent)); background: color-mix(in srgb, var(--c, var(--accent)) 12%, transparent); }
+.lo-tag.done { color: var(--green); }
+.lo-tag.done::before { content: "✓ "; }
+.prose p.tags { text-align: right; margin-top: -6px; }
+.flash { animation: flash 2.4s ease-out; border-radius: 8px; }
+@keyframes flash { 0%, 30% { background: color-mix(in srgb, var(--c, var(--accent)) 16%, transparent); box-shadow: 0 0 0 8px color-mix(in srgb, var(--c, var(--accent)) 16%, transparent); } 100% { background: transparent; box-shadow: 0 0 0 8px transparent; } }
+
+/* Callouts */
+.prose .callout { margin: 0 0 18px; padding: 14px 16px; border-radius: 14px; background: var(--bg-elev); box-shadow: var(--shadow); border-left: 4px solid var(--label-3); font-size: .94em; line-height: 1.55; }
+.prose .callout > :last-child { margin-bottom: 0; }
+.prose .callout p { margin: 0 0 10px; }
+.prose .callout .tbl { box-shadow: none; border-radius: 10px; border: .5px solid var(--sep); margin: 8px 0 10px; }
+.prose .callout table { font-size: 14px; }
+.prose .callout.trap { border-left-color: #ff9f0a; background: color-mix(in srgb, #ff9f0a 7%, var(--bg-elev)); }
+.prose .callout.trap strong:first-child { color: #c93400; }
+.prose .callout.worked { border-left-color: #5e5ce6; background: color-mix(in srgb, #5e5ce6 6%, var(--bg-elev)); }
+.prose .callout.worked strong:first-child { color: #5e5ce6; }
+.prose .callout.keys { border-left-color: var(--c, var(--accent)); }
+.prose .callout.keys strong:first-child { color: var(--c, var(--accent)); }
+@media (prefers-color-scheme: dark) {
+  .prose .callout.trap strong:first-child { color: #ff9f0a; }
+  .prose .callout.worked strong:first-child { color: #9d9bff; }
+}
+.prose .callout ol, .prose .callout ul { margin-bottom: 10px; }
+
+/* Chapter footer */
+.ch-foot { margin: 40px 0 18px; padding: 20px; text-align: center; background: var(--bg-elev); border-radius: var(--radius); box-shadow: var(--shadow); }
+.ch-foot .cf-k { font-weight: 600; }
+.ch-foot .cf-v { font-size: 14px; color: var(--label-2); margin: 2px 0 14px; }
+
+/* Link from an objective page into the study text */
+.in-book { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; padding: 12px 16px; border-radius: 14px; background: color-mix(in srgb, var(--c, var(--accent)) 10%, var(--bg-elev)); color: var(--c, var(--accent)); font-weight: 600; font-size: 15px; }
+.in-book svg:first-child { width: 20px; height: 20px; flex: none; }
+.in-book span { flex: 1; min-width: 0; }
+.side a.s-sec { padding-left: 26px; }

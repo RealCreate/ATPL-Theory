@@ -1,7 +1,9 @@
 /* ATPL Theory · single-page app (no build step). Routes:
    #/            subjects
    #/s/050       subject outline
-   #/lo/<ref>    learning objective reader                                  */
+   #/lo/<ref>    learning objective reader
+   #/b/050       study text contents
+   #/b/050/<n>   study text chapter (optional ?lo=<ref> scrolls to that objective) */
 (() => {
   "use strict";
 
@@ -70,6 +72,16 @@
     return d;
   }
   const countDone = (refs) => refs.reduce((n, r) => n + (studied.has(r) ? 1 : 0), 0);
+  const books = new Map();
+  async function book(code) {
+    if (books.has(code)) return books.get(code);
+    const b = await getJSON(`data/book-${code}.json`);
+    b.chapterOf = new Map();
+    b.chapters.forEach((c) => c.refs.forEach((r) => { if (!b.chapterOf.has(r)) b.chapterOf.set(r, c.n); }));
+    books.set(code, b);
+    return b;
+  }
+  const BOOK_IC = `<svg viewBox="0 0 24 24" ${S}><path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5z"/><path d="M12 6v13.5"/></svg>`;
 
   /* ---------- chrome ---------- */
   let backHref = null;
@@ -102,9 +114,12 @@
     const subs = await subjects();
     const total = subs.reduce((n, s) => n + s.los, 0);
     const doneAll = studied.size;
-    const last = store.get("last", null);
+    const last = store.get("last", null), lastBook = store.get("lastBook", null);
     let cont = "";
-    if (last) {
+    if (lastBook && (!last || (lastBook.ts || 0) >= (last.ts || 0))) {
+      const s = subs.find((x) => x.code === lastBook.code);
+      if (s) cont = `<a class="continue" href="#/b/${esc(lastBook.code)}/${lastBook.n}">${tile(lastBook.code)}<div class="txt"><div class="k">Continue reading</div><div class="t">${esc(lastBook.title)}</div><div class="s">${esc(s.code)} ${esc(s.name)} · study text</div></div>${CHEV}</a>`;
+    } else if (last) {
       const s = subs.find((x) => x.code === last.code);
       if (s) cont = `<a class="continue" href="#/lo/${esc(last.ref)}">${tile(last.code)}<div class="txt"><div class="k">Continue reading</div><div class="t">${esc(last.title)}</div><div class="s">${esc(s.code)} ${esc(s.name)} · ${esc(last.ref)}</div></div>${CHEV}</a>`;
     }
@@ -123,7 +138,7 @@
     let done = 0;
     for (const r of studied) if (r.startsWith(prefix)) done++;
     const pct = s.los ? (done / s.los) * 100 : 0;
-    const badge = s.theory >= s.los ? '<span class="badge full">Full theory</span>' : s.theory ? `<span class="badge">${s.theory} with theory</span>` : '<span class="badge">Syllabus</span>';
+    const badge = s.book ? '<span class="badge full">Study text</span>' : s.theory >= s.los ? '<span class="badge full">Full theory</span>' : s.theory ? `<span class="badge">${s.theory} with theory</span>` : '<span class="badge">Syllabus</span>';
     return `<a class="card" href="#/s/${s.code}" style="--c:${COLORS[s.code][0]}">
       <div class="card-top">${tile(s.code)}<div><div class="code">${s.code}</div><div class="name">${esc(s.name)}</div></div></div>
       <div class="blurb">${esc(s.blurb)}</div>
@@ -145,6 +160,7 @@
     const firstUndone = d.flat.find((l) => !studied.has(l.ref));
     main.innerHTML = `<div class="wrap" style="--c:${c}">
       <div class="hero">${tile(code, "lg")}<div style="flex:1;min-width:0"><div class="code">${code}</div><h1>${esc(meta.name)}</h1><div class="stats">${d.chapters.length} chapters · ${d.flat.length} objectives · ${done} studied</div></div>${ring(d.flat.length ? done / d.flat.length : 0, c)}</div>
+      ${meta.book ? `<a class="continue book-cta" href="#/b/${code}"><div class="tile" style="background:linear-gradient(160deg,${COLORS[code][0]},${COLORS[code][1]})">${BOOK_IC}</div><div class="txt"><div class="k">Read as a book</div><div class="t">${esc(meta.name)} study text</div><div class="s">${meta.book - 1} chapters and a formula sheet, written to read straight through</div></div>${CHEV}</a>` : ""}
       ${firstUndone ? `<a class="continue" href="#/lo/${firstUndone.ref}"><div class="txt"><div class="k">${done ? "Next to study" : "Start studying"}</div><div class="t">${esc(loTitle(firstUndone))}</div><div class="s">${firstUndone.ref}</div></div>${CHEV}</a>` : ""}
       ${notice}
       ${d.chapters.map((ch, ci) => chapterBlock(d, ch, ci)).join("")}
@@ -198,6 +214,13 @@
     setBar({ title: loTitle(lo), back: `#/s/${code}`, backLabel: meta.name });
     renderSide(d, lo);
     const prev = d.flat[lo.i - 1], next = d.flat[lo.i + 1];
+    let inBook = "";
+    if (meta.book) {
+      try {
+        const b = await book(code), n = b.chapterOf.get(ref);
+        if (n) inBook = `<a class="in-book" href="#/b/${code}/${n}?lo=${ref}">${BOOK_IC}<span>Read this in the study text · ${esc(b.chapters[n - 1].label)}</span>${CHEV}</a>`;
+      } catch {}
+    }
     const body = lo.html
       ? `<div class="prose">${lo.html}</div>`
       : `<div class="empty-theory"><div class="ic"><svg viewBox="0 0 24 24" ${S}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M8 7h8M8 11h6"/></svg></div><h3>Theory not written yet</h3><p>This subject currently shows the official learning objective only. Use it as your checklist and tick it off once you've covered it.</p></div>`;
@@ -206,6 +229,7 @@
       <span class="lo-ref">LO ${lo.ref}</span>
       <h1${loTitle(lo).length > 90 ? ' class="long"' : ""}>${esc(loTitle(lo))}</h1>
       ${lo.title ? `<div class="objective"><div class="k">Learning objective</div><div class="v">${esc(lo.lo)}</div></div>` : ""}
+      ${inBook}
       ${body}
       <div class="study"><button class="pill${studied.has(ref) ? " on" : ""}" id="studyBtn">${TICK.replace('viewBox="0 0 12 12"', 'viewBox="0 0 12 12" style="width:16px;height:16px"')}<span>${studied.has(ref) ? "Studied" : "Mark as studied"}</span></button></div>
       <div class="pn">
@@ -216,7 +240,7 @@
     </article>`;
     $("#studyBtn").addEventListener("click", () => toggleStudied(ref, d, lo));
     main.querySelectorAll("figure.dia img").forEach((img) => img.addEventListener("click", () => openLightbox(img)));
-    store.set("last", { code, ref, title: loTitle(lo) });
+    store.set("last", { code, ref, title: loTitle(lo), ts: Date.now() });
     window.scrollTo(0, 0);
     nav.prev = prev && `#/lo/${prev.ref}`; nav.next = next && `#/lo/${next.ref}`;
   }
@@ -232,6 +256,125 @@
   }
   const nav = { prev: null, next: null };
 
+  /* ---------- study text (book) ---------- */
+  async function viewBook(code) {
+    layout.classList.remove("with-side");
+    const subs = await subjects();
+    const meta = subs.find((s) => s.code === code);
+    if (!meta || !meta.book) return notFound();
+    setBar({ title: `${meta.name} study text`, back: `#/s/${code}`, backLabel: meta.name });
+    main.innerHTML = `<div class="loading">Loading…</div>`;
+    const b = await book(code);
+    const c = COLORS[code][0];
+    const all = [...b.chapterOf.keys()], done = countDone(all);
+    const lastBook = store.get("lastBook", null);
+    const cont = lastBook && lastBook.code === code
+      ? `<a class="continue" href="#/b/${code}/${lastBook.n}"><div class="txt"><div class="k">Continue reading</div><div class="t">${esc(lastBook.title)}</div><div class="s">${esc(b.chapters[lastBook.n - 1]?.label || "")}</div></div>${CHEV}</a>` : "";
+    main.innerHTML = `<div class="wrap" style="--c:${c}">
+      <div class="hero"><div class="tile lg" style="background:linear-gradient(160deg,${COLORS[code][0]},${COLORS[code][1]})">${BOOK_IC}</div><div style="flex:1;min-width:0"><div class="code">${code} ${esc(meta.name)}</div><h1>Study text</h1><div class="stats">${b.chapters.length - 1} chapters · ${all.length} objectives · ${done} studied</div></div>${ring(all.length ? done / all.length : 0, c)}</div>
+      ${cont}
+      <div class="notice"><div>📖</div><div>Written to read straight through, like a textbook. The <b>small grey codes</b> in the text name the learning objectives each paragraph covers: tap one to open that objective. Mark a chapter as studied at its end.</div></div>
+      <div class="book-list">${b.chapters.map((ch) => {
+        const dn = countDone(ch.refs), pct = ch.refs.length ? dn / ch.refs.length : 0;
+        return `<a class="book-ch" href="#/b/${code}/${ch.n}"><span class="ch-num">${ch.label.startsWith("Chapter") ? ch.n : "A"}</span><span class="ch-title"><div class="t">${esc(ch.title)}</div><div class="s">${ch.sections.length} sections${ch.refs.length ? ` · ${dn}/${ch.refs.length} objectives studied` : ""}</div></span>${ch.refs.length ? ring(pct, c) : ""}${CHEV}</a>`;
+      }).join("")}</div>
+      <p class="foot">Prefer one objective per page? Open the <a href="#/s/${code}">objective view</a>.</p>
+    </div>`;
+  }
+
+  function renderBookSide(code, b, ch) {
+    side.style.setProperty("--c", COLORS[code][0]);
+    side.innerHTML = `<a class="s-head" href="#/b/${code}"><div class="tile" style="background:linear-gradient(160deg,${COLORS[code][0]},${COLORS[code][1]})">${BOOK_IC}</div><div><div class="c">${code} study text</div><div class="n">Contents</div></div></a>
+      ${b.chapters.map((c) => `<div class="s-ch${c.n === ch.n ? " open" : ""}"><button>${DISC}<span>${c.label.startsWith("Chapter") ? c.n + " · " : ""}${esc(c.title)}</span></button><div class="s-list">${c.n === ch.n
+        ? c.sections.map((s) => `<a class="s-lo s-sec" href="#/b/${code}/${c.n}" data-sec="${s.id}"><span>${esc(s.title)}</span></a>`).join("")
+        : `<a class="s-lo" href="#/b/${code}/${c.n}"><span>Open chapter</span></a>`}</div></div>`).join("")}`;
+    side.querySelectorAll(".s-ch > button").forEach((x) => x.addEventListener("click", () => x.parentElement.classList.toggle("open")));
+    side.querySelectorAll("[data-sec]").forEach((a) => a.addEventListener("click", (e) => {
+      e.preventDefault();
+      const el = document.getElementById(a.dataset.sec);
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 70, behavior: "smooth" });
+    }));
+  }
+
+  function paintTags(root) {
+    root.querySelectorAll(".lo-tag").forEach((t) => {
+      const refs = t.dataset.refs.split(" ");
+      t.classList.toggle("done", refs.every((r) => studied.has(r)));
+    });
+  }
+
+  let spy = null;
+  async function viewChapter(code, n, loRef) {
+    const subs = await subjects();
+    const meta = subs.find((s) => s.code === code);
+    if (!meta || !meta.book) return notFound();
+    const b = await book(code);
+    const ch = b.chapters[n - 1];
+    if (!ch) return notFound();
+    const c = COLORS[code][0];
+    layout.classList.add("with-side");
+    setBar({ title: ch.title, back: `#/b/${code}`, backLabel: "Contents" });
+    renderBookSide(code, b, ch);
+    const prev = b.chapters[n - 2], next = b.chapters[n];
+    const total = ch.refs.length;
+    main.innerHTML = `<article class="read reader book" style="--c:${c}">
+      <nav class="crumbs"><a href="#/s/${code}">${code} ${esc(meta.name)}</a><span class="sep">›</span><a href="#/b/${code}">Study text</a></nav>
+      <div class="kicker">${esc(ch.label)}</div>
+      <h1>${esc(ch.title)}</h1>
+      <div class="prose">${ch.html}</div>
+      ${total ? `<div class="ch-foot"><div class="cf-k">This chapter covers ${total} learning objectives</div><div class="cf-v" id="cfCount"></div><button class="pill" id="chStudy"></button></div>` : ""}
+      <div class="pn">
+        ${prev ? `<a class="prev" href="#/b/${code}/${prev.n}"><span class="k">‹ ${esc(prev.label)}</span><span class="t">${esc(prev.title)}</span></a>` : "<span></span>"}
+        ${next ? `<a class="next" href="#/b/${code}/${next.n}"><span class="k">${esc(next.label)} ›</span><span class="t">${esc(next.title)}</span></a>` : ""}
+      </div>
+    </article>`;
+    const art = $("article.book", main);
+    paintTags(art);
+    const btn = $("#chStudy");
+    const paintFoot = () => {
+      if (!btn) return;
+      const dn = countDone(ch.refs), all = dn === total;
+      $("#cfCount").textContent = `${dn} of ${total} marked as studied`;
+      btn.classList.toggle("on", all);
+      btn.innerHTML = `${TICK.replace('viewBox="0 0 12 12"', 'viewBox="0 0 12 12" style="width:16px;height:16px"')}<span>${all ? "Chapter studied" : "Mark chapter as studied"}</span>`;
+    };
+    paintFoot();
+    if (btn) btn.addEventListener("click", () => {
+      const all = countDone(ch.refs) === total;
+      ch.refs.forEach((r) => (all ? studied.delete(r) : studied.add(r)));
+      saveStudied(); paintFoot(); paintTags(art);
+      if (navigator.vibrate) try { navigator.vibrate(all ? 0 : 8); } catch {}
+    });
+    art.querySelectorAll("figure.dia img").forEach((img) => img.addEventListener("click", () => openLightbox(img)));
+    store.set("lastBook", { code, n, title: ch.title, ts: Date.now() });
+    nav.prev = prev && `#/b/${code}/${prev.n}`; nav.next = next && `#/b/${code}/${next.n}`;
+
+    // Scroll: to a requested objective, else back to where the reader left off.
+    const key = `bscroll.${code}.${n}`;
+    requestAnimationFrame(() => {
+      const target = loRef && art.querySelector(`.lo-tag[data-refs~="${loRef}"]`);
+      if (target) {
+        const block = target.closest("p, li, aside") || target;
+        window.scrollTo(0, block.getBoundingClientRect().top + window.scrollY - 80);
+        block.classList.add("flash");
+        setTimeout(() => block.classList.remove("flash"), 2400);
+      } else window.scrollTo(0, store.get(key, 0));
+    });
+
+    // Highlight the current section in the sidebar.
+    if (spy) spy.disconnect();
+    const links = new Map([...side.querySelectorAll("[data-sec]")].map((a) => [a.dataset.sec, a]));
+    spy = new IntersectionObserver((es) => {
+      es.forEach((e) => {
+        if (!e.isIntersecting) return;
+        links.forEach((a) => a.classList.remove("cur"));
+        const a = links.get(e.target.id);
+        if (a) a.classList.add("cur");
+      });
+    }, { rootMargin: "-70px 0px -70% 0px" });
+    art.querySelectorAll(".prose h3[id]").forEach((h) => spy.observe(h));
+  }
+
   function notFound() {
     layout.classList.remove("with-side");
     setBar({ title: "Not found", back: "#/", backLabel: "Subjects" });
@@ -243,11 +386,16 @@
   async function router() {
     const h = location.hash || "#/";
     if (route.startsWith("#/s/")) store.set("scroll." + route.slice(4), window.scrollY);
+    const rb = route.match(/^#\/b\/(\d{3})\/(\d+)/);
+    if (rb) store.set(`bscroll.${rb[1]}.${rb[2]}`, window.scrollY);
+    if (spy && !h.startsWith("#/b/")) { spy.disconnect(); spy = null; }
     route = h;
     nav.prev = nav.next = null;
     try {
       let m;
       if ((m = h.match(/^#\/s\/(\d{3})$/))) await viewSubject(m[1]);
+      else if ((m = h.match(/^#\/b\/(\d{3})$/))) await viewBook(m[1]);
+      else if ((m = h.match(/^#\/b\/(\d{3})\/(\d+)(?:\?lo=([\d.]+))?$/))) await viewChapter(m[1], +m[2], m[3]);
       else if ((m = h.match(/^#\/lo\/([\d.]+)$/))) await viewLO(m[1]);
       else await viewHome();
     } catch (e) {
