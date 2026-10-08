@@ -1,0 +1,202 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html,body{margin:0;background:#fff}
+  svg{display:block;font-family:Inter,-apple-system,"SF Pro Display",sans-serif}
+</style></head>
+<body>
+<svg id="s" xmlns="http://www.w3.org/2000/svg" width="1520" height="1530" viewBox="0 0 1520 1530"></svg>
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('s');
+const C = { navy:'#1a2a44', red:'#ff7466', blue:'#86b9ff', yellow:'#ffd04d', white:'#ffffff', iso:'rgba(255,255,255,0.78)', muted:'#c9d6ea', ink:'#111827', grey:'#6b7280' };
+
+function el(tag, attrs, parent, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text !== undefined) e.textContent = text;
+  (parent || svg).appendChild(e);
+  return e;
+}
+function txt(p, x, y, s, size, weight, fill, anchor, extra) {
+  return el('text', Object.assign({ x, y, 'font-size': size, 'font-weight': weight, fill, 'text-anchor': anchor || 'start' }, extra || {}), p, s);
+}
+// halo text so labels stay readable over isobars
+function label(p, x, y, s, size, weight, fill, anchor) {
+  txt(p, x, y, s, size, weight, '#1e3354', anchor, { stroke: '#1e3354', 'stroke-width': 5, 'stroke-linejoin': 'round' });
+  return txt(p, x, y, s, size, weight, fill, anchor);
+}
+function arrow(p, x1, y1, x2, y2, color, w, head) {
+  const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L;
+  const bx = x2 - ux * head, by = y2 - uy * head;
+  el('line', { x1, y1, x2: bx, y2: by, stroke: color, 'stroke-width': w, 'stroke-linecap': 'round' }, p);
+  const hw = head * 0.6;
+  el('polygon', { points: `${x2},${y2} ${bx - uy * hw},${by + ux * hw} ${bx + uy * hw},${by - ux * hw}`, fill: color }, p);
+}
+function centre(p, x, y, letter, ring, fill) {
+  el('circle', { cx: x, cy: y, r: 34, fill: C.navy, stroke: ring, 'stroke-width': 3 }, p);
+  txt(p, x, y + 15, letter, 42, 700, fill, 'middle');
+}
+
+let clipN = 0;
+function panel(x, y, w, h, title, subtitle, bodyH) {
+  const g = el('g', { transform: `translate(${x},${y})` });
+  const id = 'clip' + (clipN++);
+  const cp = el('clipPath', { id }, g);
+  el('rect', { x: 0, y: 0, width: w, height: h, rx: 22 }, cp);
+  const inner = el('g', { 'clip-path': `url(#${id})` }, g);
+  el('rect', { x: 0, y: 0, width: w, height: h, fill: C.navy }, inner);
+  const grad = 'g' + id;
+  const lg = el('linearGradient', { id: grad, x1: 0, y1: 0, x2: 0, y2: 1 }, g);
+  el('stop', { offset: 0, 'stop-color': '#21375a' }, lg);
+  el('stop', { offset: 1, 'stop-color': '#3a5d84' }, lg);
+  el('rect', { x: 0, y: 56, width: w, height: bodyH, fill: `url(#${grad})` }, inner);
+  txt(g, 22, 38, title, 22, 700, C.white);
+  txt(g, w - 22, 37, subtitle, 15, 500, C.muted, 'end');
+  const bid = 'body' + id;
+  const bc = el('clipPath', { id: bid }, g);
+  el('rect', { x: 0, y: 56, width: w, height: bodyH }, bc);
+  const body = el('g', { 'clip-path': `url(#${bid})` }, g);
+  return { g, body };
+}
+
+/* ---------- header ---------- */
+txt(svg, 40, 46, 'Geostrophic wind and circulation · northern vs southern hemisphere', 24, 600, C.ink, 'start', { 'letter-spacing': '-0.01em' });
+txt(svg, 1480, 46, 'Above the friction layer · more than ~15° from the equator', 15, 400, C.grey, 'end');
+
+/* ---------- row A: geostrophic balance ---------- */
+function balance(px, nh) {
+  const W = 730, H = 700, BODY = 500;
+  const { g, body } = panel(px, 84, W, H,
+    nh ? '1 · Northern hemisphere' : '2 · Southern hemisphere',
+    nh ? 'straight isobars · anticlockwise round a LOW' : 'straight isobars · clockwise round a LOW', BODY);
+  const cx = 370, cy = 300;
+  const u = [Math.cos(Math.PI / 6), -Math.sin(Math.PI / 6)];   // along the isobars, up-right
+  const n = [-0.5, -Math.sqrt(3) / 2];                          // towards the LOW
+  const P = (a, b) => [cx + a * n[0] + b * u[0], cy + a * n[1] + b * u[1]];
+  // isobars
+  const pres = { '50': 1012, '-50': 1016, '-150': 1020, '-250': 1024, '-350': 1028 };
+  for (let o = 350; o >= -450; o -= 100) {
+    const a = P(o, -900), b = P(o, 900);
+    el('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: C.iso, 'stroke-width': 2 }, body);
+  }
+  for (const k of ['-50', '-150', '-250', '-350']) {
+    const o = +k, t = (690 - cx + 0.5 * o) / u[0];
+    const [lx, ly] = P(o, t);
+    const lg = el('g', { transform: `translate(${lx},${ly}) rotate(-30)` }, body);
+    el('rect', { x: -26, y: -12, width: 52, height: 24, rx: 12, fill: C.navy }, lg);
+    txt(lg, 0, 5, String(pres[k]), 13, 600, C.white, 'middle');
+  }
+  // centres
+  const Lp = P(190, -150), Hp = P(-230, 0);
+  centre(body, Lp[0], Lp[1], 'L', C.red, C.red);
+  centre(body, Hp[0], Hp[1], 'H', C.blue, C.blue);
+  // air at rest path
+  const s = nh ? 1 : -1;
+  const Q = [cx - s * 160 * u[0] * (nh ? 1 : 0.875), cy - s * 160 * u[1] * (nh ? 1 : 0.875)];
+  const S = [Q[0] - (nh ? 140 : 120) * n[0], Q[1] - (nh ? 140 : 120) * n[1]];
+  el('path', { d: `M${S[0]},${S[1]} Q${Q[0]},${Q[1]} ${cx},${cy}`, fill: 'none', stroke: C.yellow, 'stroke-width': 3, 'stroke-dasharray': '2 8', 'stroke-linecap': 'round' }, body);
+  el('circle', { cx: S[0], cy: S[1], r: 8, fill: C.yellow }, body);
+  if (nh) {
+    label(body, S[0] - 16, S[1] + 6, 'air at rest', 16, 700, C.yellow, 'end');
+    label(body, S[0] - 16, S[1] + 26, 'PGF starts it moving,', 13, 500, C.white, 'end');
+    label(body, S[0] - 16, S[1] + 43, 'Coriolis turns it right', 13, 500, C.white, 'end');
+  } else {
+    label(body, S[0] + 16, S[1] + 6, 'air at rest', 16, 700, C.yellow);
+    label(body, S[0] + 16, S[1] + 26, 'PGF starts it moving,', 13, 500, C.white);
+    label(body, S[0] + 16, S[1] + 43, 'Coriolis turns it left', 13, 500, C.white);
+  }
+  // forces
+  const pg = P(130, 0), co = P(-130, 0), wd = P(0, s * 190);
+  arrow(body, cx, cy, pg[0], pg[1], C.red, 7, 30);
+  arrow(body, cx, cy, co[0], co[1], C.blue, 7, 30);
+  arrow(body, cx, cy, wd[0], wd[1], C.white, 10, 38);
+  el('circle', { cx, cy, r: 10, fill: C.white, stroke: C.navy, 'stroke-width': 3 }, body);
+  label(body, pg[0] + 14, pg[1] - 8, 'PGF', 20, 700, C.red);
+  label(body, pg[0] + 14, pg[1] + 12, 'towards LOW, ⊥ isobars', 13, 500, C.white);
+  label(body, co[0] + 18, co[1] - 4, 'Coriolis', 20, 700, C.blue);
+  label(body, co[0] + 18, co[1] + 16, nh ? '90° right of the wind · = PGF' : '90° left of the wind · = PGF', 13, 500, C.white);
+  if (nh) {
+    label(body, wd[0] + 4, wd[1] + 34, 'Geostrophic wind', 20, 700, C.white);
+    label(body, wd[0] + 4, wd[1] + 54, 'parallel to the isobars', 13, 500, C.white);
+  } else {
+    label(body, wd[0] - 10, wd[1] + 40, 'Geostrophic wind', 20, 700, C.white, 'middle');
+    label(body, wd[0] - 10, wd[1] + 60, 'parallel to the isobars', 13, 500, C.white, 'middle');
+  }
+  // footer
+  const fy = 56 + BODY;
+  const f = el('text', { x: 22, y: fy + 40, 'font-size': 18, 'font-weight': 700, fill: C.white }, g);
+  el('tspan', {}, f, 'Back to the wind: LOW on the ');
+  el('tspan', { fill: C.red }, f, nh ? 'left' : 'right');
+  txt(g, 22, fy + 74, nh ? 'Coriolis deflects to the right' : 'Coriolis deflects to the left', 17, 500, C.white);
+  txt(g, 22, fy + 106, nh ? 'PGF and Coriolis equal and opposite' : 'Same PGF and Coriolis; wind reversed', 17, 500, C.white);
+  // mini compass: you, wind from behind
+  const mx = 640, my = fy + 70;
+  el('circle', { cx: mx, cy: my, r: 44, fill: '#24395c' }, g);
+  arrow(g, mx, my + 26, mx, my - 30, C.white, 6, 18);
+  el('circle', { cx: mx, cy: my + 16, r: 8, fill: C.yellow }, g);
+  txt(g, mx - 30, my + 6, nh ? 'L' : 'H', 16, 700, nh ? C.red : C.blue, 'middle');
+  txt(g, mx + 30, my + 6, nh ? 'H' : 'L', 16, 700, nh ? C.blue : C.red, 'middle');
+  txt(g, mx, my + 64, 'you, wind behind', 12, 600, C.muted, 'middle');
+}
+balance(20, true);
+balance(770, false);
+
+/* ---------- row B: full circulation ---------- */
+function rotation(p, x, y, cw, color) {
+  // three thick arcs with arrowheads; cw = clockwise on the chart
+  const R = 122;
+  for (let i = 0; i < 3; i++) {
+    const a0 = (-90 + i * 120 + 14) * Math.PI / 180;
+    const a1 = a0 + (120 - 28) * Math.PI / 180;
+    const [sa, ea] = cw ? [a0, a1] : [a1, a0];
+    const ps = [x + R * Math.cos(sa), y + R * Math.sin(sa)];
+    // stop the line short of the tip so the head sits on the arc
+    const headA = 0.22 * (cw ? 1 : -1);
+    const eb = ea - headA;
+    const pe = [x + R * Math.cos(eb), y + R * Math.sin(eb)];
+    el('path', { d: `M${ps[0]},${ps[1]} A${R},${R} 0 0 ${cw ? 1 : 0} ${pe[0]},${pe[1]}`, fill: 'none', stroke: color, 'stroke-width': 9, 'stroke-linecap': 'round' }, p);
+    const tip = [x + R * Math.cos(ea), y + R * Math.sin(ea)];
+    const tx = -Math.sin(eb) * (cw ? 1 : -1), ty = Math.cos(eb) * (cw ? 1 : -1);   // travel direction
+    const rx = Math.cos(eb), ry = Math.sin(eb), hw = 17;
+    el('polygon', { points: `${tip[0] + tx * 6},${tip[1] + ty * 6} ${pe[0] + rx * hw},${pe[1] + ry * hw} ${pe[0] - rx * hw},${pe[1] - ry * hw}`, fill: color }, p);
+  }
+}
+function circulation(px, nh) {
+  const W = 730, H = 520, BODY = 330;
+  const { g, body } = panel(px, 804, W, H,
+    nh ? '3 · Northern hemisphere: rotation' : '4 · Southern hemisphere: rotation',
+    'curved isobars · wind follows the isobars', BODY);
+  const sys = [{ x: 190, L: true }, { x: 540, L: false }];
+  const cy = 56 + BODY / 2;
+  for (const s of sys) {
+    for (const r of [70, 170]) el('circle', { cx: s.x, cy, r, fill: 'none', stroke: C.iso, 'stroke-width': 2 }, body);
+    const cw = s.L ? !nh : nh;   // NH: LOW anticlockwise, HIGH clockwise; SH reversed
+    rotation(body, s.x, cy, cw, C.white);
+    centre(body, s.x, cy, s.L ? 'L' : 'H', s.L ? C.red : C.blue, s.L ? C.red : C.blue);
+  }
+  const fy = 56 + BODY;
+  const f1 = el('text', { x: 22, y: fy + 40, 'font-size': 18, 'font-weight': 700, fill: C.white }, g);
+  el('tspan', { fill: C.red }, f1, 'LOW');
+  el('tspan', {}, f1, nh ? ' anticlockwise · ' : ' clockwise · ');
+  el('tspan', { fill: C.blue }, f1, 'HIGH');
+  el('tspan', {}, f1, nh ? ' clockwise' : ' anticlockwise');
+  txt(g, 22, fy + 74, nh ? 'Back to the wind: LOW on the left' : 'Back to the wind: LOW on the right', 17, 500, C.white);
+  txt(g, 22, fy + 106, nh ? 'Wind from the right: flying towards the HIGH' : 'Wind from the left: flying towards the HIGH', 17, 500, C.white);
+}
+circulation(20, true);
+circulation(770, false);
+
+/* ---------- bottom text ---------- */
+let ty = 1366;
+txt(svg, 40, ty, 'Reading an exam figure', 17, 600, C.ink);
+const para = [
+  'In geostrophic balance the PGF always points at the LOW and the Coriolis force points the opposite way, at the HIGH, in both hemispheres. Only the wind',
+  'arrow tells you the hemisphere: with the LOW on its left it is northern, with the LOW on its right it is southern. To find the rotation round a system, put your',
+  'back to any arrow in panels 3 and 4: the LOW is on your left in the northern hemisphere and on your right in the southern.',
+  'Vg = (ΔP/Δn) ÷ (ρ · 2Ω sin φ): closer isobars, thinner air or lower latitude give a stronger wind.'
+];
+para.forEach((l, i) => txt(svg, 40, ty + 30 + i * 25, l, 16, 400, '#374151'));
+txt(svg, 40, ty + 30 + para.length * 25 + 12, 'Source: Hong Kong Observatory, Geostrophic Wind; Pima Open, Weather and Climate 3.3 Applying the Forces Which Affect Wind; Ahrens & Henson, Meteorology Today', 12, 400, '#9ca3af');
+</script>
+</body></html>
