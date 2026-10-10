@@ -471,9 +471,11 @@
   $("#searchBtn").addEventListener("click", openSearch);
 
   /* ---------- lightbox ---------- */
-  const lb = $("#lightbox"), lbImg = $("#lbImg"), lbScroll = $(".lb-scroll");
+  const lb = $("#lightbox"), lbImg = $("#lbImg"), lbCap = $("#lbCap"), lbScroll = $(".lb-scroll");
   function openLightbox(img) {
     lbImg.src = img.currentSrc || img.src; lbImg.alt = img.alt;
+    const cap = img.closest("figure")?.querySelector("figcaption");
+    lbCap.textContent = cap ? cap.textContent : ""; lbCap.hidden = !cap;
     lbScroll.classList.remove("zoom");
     lb.hidden = false; document.body.style.overflow = "hidden";
   }
