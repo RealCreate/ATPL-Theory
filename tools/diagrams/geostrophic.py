@@ -4,12 +4,12 @@ One panel per hemisphere on the same chart: a LOW above, a HIGH below, both "sta
 isobars between them are truly straight and their ends are circular arcs.
 
 Phase 1 (adjustment) — integrated step by step in the drawn pressure field:
-    dv/dt = PGF + Coriolis - k (v - vg)
+    dv/dt = PGF + Coriolis - k (v·n) n        (n = unit vector across the isobars)
   The parcel starts at rest; PGF pushes it towards the LOW, Coriolis (right NH / left SH) turns it
-  until it runs along the isobars. The small damping term stands in for geostrophic adjustment and
-  is not drawn.
+  until it runs along the isobars. The damping acts only on motion ACROSS the isobars (it stands in
+  for geostrophic adjustment, never pushes the air) and is not drawn.
 Phase 2 (circulation) — the parcel follows the isobar round the LOW at the gradient-wind speed for
-  the local curvature:  V²/R + |f| V = |f| Vg.
+  the local curvature (isobars drawn as organic, slightly irregular rings):  V²/R + |f| V = |f| Vg.
   Straight isobars: V = Vg and Coriolis = PGF (geostrophic). Curved ends: V < Vg, so Coriolis < PGF
   and the difference is exactly the centripetal force V²/R that turns the air (gradient wind).
 Arrows: PGF = alpha·|grad p| from the field, Coriolis = |f|·V, wind = V; same numbers as the motion.
@@ -26,40 +26,68 @@ C_PGF, C_COR, C_WIND = "#e0483e", "#2f6fd6", "#1d2733"
 C_L, C_H = "#d93a33", "#2a62c9"
 PAPER, ISO = "#f6f3ea", "#6b7380"
 
-W, H, PW = 1520, 800, 760
-CX, HALF = 380, 135                 # stadium centre x and half length of the straight part
-LY, HY, SIG = 262, 532, 72          # LOW and HIGH centre lines, pressure-bump width
-F, ALPHA, K = 2.0, 1900.0, 1.2
-LEVEL = 1006                        # the isobar the parcel ends up circling
+W, H, PW = 1520, 760, 760
+LX, LY, HX, HY, SIG = 245, 330, 560, 330, 92   # LOW left, HIGH right
+F, ALPHA, K = 2.0, 2300.0, 4.5
+LEVEL = 1008                        # the (drawn) isobar the parcel ends up circling
 DT, FPS = 0.002, 10
-SLOWMO = 1.7                        # phase 1 is played this much slower (same path and forces)
+PLAY = 0.72                         # playback time per physical second (same path and forces)
+NEAR_STRAIGHT = 0.93                # V/Vg above this: "nearly straight", PGF ≈ Coriolis
 
-def _seg_d2(x, y, yc):
-    dx = np.maximum(np.abs(x - CX) - HALF, 0)
-    return dx ** 2 + (y - yc) ** 2
+def _rho(x, y, cx, cy, ph):
+    """distance with a gentle angular wobble -> organic, hand-drawn-looking isobars"""
+    dx, dy = x - cx, y - cy
+    th = np.arctan2(dy, dx)
+    return np.hypot(dx, dy) * (1 + 0.07 * np.sin(3 * th + ph) + 0.04 * np.sin(5 * th + 2 * ph))
 
 def p(x, y):
-    return 1012 - 16 * np.exp(-_seg_d2(x, y, LY) / (2 * SIG ** 2)) + 16 * np.exp(-_seg_d2(x, y, HY) / (2 * SIG ** 2))
+    return (1012 - 16 * np.exp(-_rho(x, y, LX, LY, 0.6) ** 2 / (2 * SIG ** 2))
+            + 16 * np.exp(-_rho(x, y, HX, HY, 2.1) ** 2 / (2 * (SIG * 0.9) ** 2)))
 
 def grad(x, y, h=0.5):  # math coords (y up)
     return ((p(x + h, y) - p(x - h, y)) / (2 * h), -(p(x, y + h) - p(x, y - h)) / (2 * h))
 
 def contours():
-    xs = np.linspace(20, PW - 20, 420); ys = np.linspace(70, 690, 380)
+    xs = np.linspace(20, PW - 20, 420); ys = np.linspace(70, 640, 360)
     X, Y = np.meshgrid(xs, ys)
     gen = contourpy.contour_generator(X, Y, p(X, Y))
     return [(lev, ln) for lev in range(996, 1032, 4) for ln in gen.lines(lev)], gen
 
 # ---------------------------------------------------------------- phase 1
-def adjust(f, start, T=4.0):
+def curvature(x, y, h=1.0):
+    """Signed isobar curvature, kappa = div(grad p / |grad p|); > 0 round lower pressure (cyclonic)."""
+    def n(xx, yy):
+        gx, gy = grad(xx, yy); m = math.hypot(gx, gy) or 1e-12
+        return gx / m, gy / m
+    nxp, _ = n(x + h, y); nxm, _ = n(x - h, y)
+    _, nyp = n(x, y - h); _, nym = n(x, y + h)          # math y up = screen y down
+    return (nxp - nxm) / (2 * h) + (nyp - nym) / (2 * h)
+
+def balanced_wind(x, y, f):
+    """Gradient-wind velocity along the local isobar (= geostrophic where the isobars are straight)."""
+    gx, gy = grad(x, y)
+    vgx, vgy = (ALPHA / f) * -gy, (ALPHA / f) * gx
+    Vg = math.hypot(vgx, vgy)
+    if Vg < 1e-9: return 0.0, 0.0
+    kap = curvature(x, y); fa = abs(f)
+    if abs(kap) < 1e-6: V = Vg
+    elif kap > 0:
+        R = 1 / kap; V = (-fa * R + math.sqrt((fa * R) ** 2 + 4 * fa * R * Vg)) / 2
+    else:
+        R = -1 / kap; V = (fa * R - math.sqrt(max((fa * R) ** 2 - 4 * fa * R * Vg, 0.0))) / 2
+    return vgx / Vg * V, vgy / Vg * V
+
+def adjust(f, start, T=8.0):
     x, y = start; vx = vy = 0.0; out = []; t = 0.0
     while t <= T + 1e-9:
         gx, gy = grad(x, y)
         apx, apy = -ALPHA * gx, -ALPHA * gy
         acx, acy = f * vy, -f * vx
-        vgx, vgy = (ALPHA / f) * -gy, (ALPHA / f) * gx
         out.append((t, x, y, vx, vy, apx, apy, acx, acy))
-        ax = apx + acx - K * (vx - vgx); ay = apy + acy - K * (vy - vgy)
+        # damp only the across-isobar part of the motion (never drives the air)
+        m = math.hypot(gx, gy) or 1e-12; nx, ny = gx / m, gy / m
+        vn = vx * nx + vy * ny
+        ax = apx + acx - K * vn * nx; ay = apy + acy - K * vn * ny
         vx += ax * DT; vy += ay * DT; x += vx * DT; y -= vy * DT; t += DT
     return out
 
@@ -86,13 +114,13 @@ def circulate(f, ring, x0, y0, t0):
         den = np.linalg.norm(b - a) * np.linalg.norm(c - b) * np.linalg.norm(c - a)
         kap = 2 * cr / den if den > 0 else 0.0
         gx, gy = grad(x, y); P = ALPHA * math.hypot(gx, gy); Vg = P / fa
-        if kap < 1e-3: kap = 0.0; V = Vg
+        if kap < 1e-4: V = Vg
         else:
             R = 1 / kap; V = (-fa * R + math.sqrt((fa * R) ** 2 + 4 * fa * R * Vg)) / 2
         tx, ty = xs[i + 1] - x, -(ys[i + 1] - y); m = math.hypot(tx, ty); tx, ty = tx / m, ty / m
         vx, vy = V * tx, V * ty
-        out.append((t, x, y, vx, vy, -ALPHA * gx, -ALPHA * gy, f * vy, -f * vx, kap))
-        t += m / V
+        out.append((t, x, y, vx, vy, -ALPHA * gx, -ALPHA * gy, f * vy, -f * vx, V / Vg))
+        t += m / V * PLAY
     return out
 
 def T(x, y, s, cls="lbl", a="start", extra=""):
@@ -115,18 +143,22 @@ def markers():
 def run(sh, gen):
     f = -F if sh else F
     ring = max(gen.lines(LEVEL), key=len)
-    below = ring[ring[:, 1] > LY]
-    y_target = below[np.argmin(np.abs(below[:, 0] - CX)), 1]          # lower straight side of the isobar
-    x_start = CX - 200 if not sh else CX + 200
-    lo, hi = y_target + 5, HY - 20
-    for _ in range(30):                                                # start (at rest) that adjusts onto LEVEL
+    y_start = LY + (55 if not sh else -55)        # NH air turns north (up) after leaving, SH south
+    lo, hi = LX + 60, HX - 40                     # start x range (at rest, between the systems)
+    for _ in range(30):
         mid = (lo + hi) / 2
-        if adjust(f, (x_start, mid))[-1][2] < y_target: lo = mid
+        r = adjust(f, (mid, y_start))[-1]
+        if p(r[1], r[2]) < LEVEL: lo = mid       # ended too deep in the low: start further out
         else: hi = mid
-    ph1 = adjust(f, (x_start, (lo + hi) / 2))
-    cut = next((i for i, r in enumerate(ph1) if r[0] > 1.0 and abs(r[4]) < 0.03 * math.hypot(r[3], r[4])
-                and abs(r[2] - y_target) < 2.5), len(ph1) - 1)
-    ph1 = [(r[0] * SLOWMO,) + tuple(r[1:]) for r in ph1[: cut + 1]]
+    ph1 = adjust(f, ((lo + hi) / 2, y_start))
+    def aligned(r):
+        gx, gy = grad(r[1], r[2]); vgx, vgy = (ALPHA / f) * -gy, (ALPHA / f) * gx
+        ang = math.atan2(r[3] * vgy - r[4] * vgx, r[3] * vgx + r[4] * vgy)
+        bx, by = balanced_wind(r[1], r[2], f); Vb = math.hypot(bx, by)
+        return (abs(ang) < math.radians(6) and abs(p(r[1], r[2]) - LEVEL) < 0.2
+                and abs(math.hypot(r[3], r[4]) - Vb) < 0.06 * Vb)
+    cut = next((i for i, r in enumerate(ph1) if r[0] > 1.0 and aligned(r)), len(ph1) - 1)
+    ph1 = [(r[0] * PLAY,) + tuple(r[1:]) for r in ph1[: cut + 1]]
     t1 = ph1[-1][0]
     ph2 = circulate(f, ring, ph1[-1][1], ph1[-1][2], t1)
     return ph1, ph2, t1
@@ -141,8 +173,7 @@ def panel(ox, sh, cons, gen):
         if r[0] >= nxt - 1e-9: frames.append(r); nxt = r[0] + 1 / FPS
     if frames[-1] is not allf[-1]: frames.append(allf[-1])
     keyTimes = ";".join(f"{fr[0]/dur:.4f}" for fr in frames) + ";1"
-    curved_from = next(r[0] for r in ph2 if r[9] > 0)
-
+    
     g = []
     g.append(f'<rect x="{ox+12}" y="12" width="{PW-24}" height="{H-24}" rx="18" fill="{PAPER}" stroke="#e2ddcf"/>')
     hdr = "Southern hemisphere" if sh else "Northern hemisphere"
@@ -161,11 +192,11 @@ def panel(ox, sh, cons, gen):
             col = C_L if around_L else C_H
             g.append(f'<path d="{d}" fill="none" stroke="{col}" stroke-width="3" stroke-linecap="round" stroke-dasharray="9 33" opacity=".45">'
                      f'<animate attributeName="stroke-dashoffset" from="0" to="{sign*42}" dur="1.8s" repeatCount="indefinite"/></path>')
-        i = int(np.argmin(ln[:, 0]))
-        lx, ly = ox + max(ln[i, 0], 44), ln[i, 1]
+        i = int(np.argmin(ln[:, 0])) if lev < 1012 else int(np.argmax(ln[:, 0])) if lev > 1012 else int(np.argmin(ln[:, 1]))
+        lx, ly = ox + min(max(ln[i, 0], 44), PW - 44), max(ln[i, 1], 76)
         g.append(f'<rect x="{lx-20}" y="{ly-9}" width="40" height="18" rx="6" fill="{PAPER}"/>' + T(lx, ly + 4, str(lev), "iso", "middle"))
-    g.append(T(ox + CX, LY + 13, "L", "big", "middle", f'style="fill:{C_L}"'))
-    g.append(T(ox + CX, HY + 13, "H", "big", "middle", f'style="fill:{C_H}"'))
+    g.append(T(ox + LX, LY + 13, "L", "big", "middle", f'style="fill:{C_L}"'))
+    g.append(T(ox + HX, HY + 13, "H", "big", "middle", f'style="fill:{C_H}"'))
 
     pts = [(ox + fr[1], fr[2]) for fr in frames]
     cum = [0.0]
@@ -179,7 +210,7 @@ def panel(ox, sh, cons, gen):
              f'stroke-dasharray="{Lt:.1f} {Lt:.1f}">' + an("stroke-dashoffset", [Lt - c for c in cum]) + '</polyline>')
     g.append(f'<circle cx="{pts[0][0]:.1f}" cy="{pts[0][1]:.1f}" r="4" fill="#e7a21a"/>'
              + T(pts[0][0], pts[0][1] + 26, "air at rest", "sm", "middle"))
-    Pref = np.mean([math.hypot(r[5], r[6]) for r in ph2 if r[9] == 0])
+    Pref = np.mean([math.hypot(r[5], r[6]) for r in ph2])
     s_force = 54.0 / Pref                      # one scale for PGF and Coriolis: lengths compare honestly
     s_wind = 84.0 / (Pref / F)
     def vec(color, mk, comp, label, off):
@@ -189,7 +220,7 @@ def panel(ox, sh, cons, gen):
             dx, dy = comp(fr); ex, ey = cx + dx, cy - dy
             m = math.hypot(dx, dy) or 1
             x1.append(cx); y1.append(cy); x2.append(ex); y2.append(ey)
-            tx.append(ex + dx / m * off); ty.append(ey - dy / m * off + 5)
+            tx.append(min(max(ex + dx / m * off, ox + 46), ox + PW - 46)); ty.append(min(max(ey - dy / m * off + 5, 70), H - 130))
         return (f'<line stroke="{color}" stroke-width="5" stroke-linecap="round" marker-end="url(#a{mk})">'
                 + an("x1", x1) + an("y1", y1) + an("x2", x2) + an("y2", y2) + "</line>"
                 + f'<text class="tag" text-anchor="middle" style="fill:{color}">{label}' + an("x", tx) + an("y", ty) + "</text>")
@@ -218,7 +249,7 @@ def panel(ox, sh, cons, gen):
     spans = {True: [], False: []}
     cur, t_start = None, t1
     for r in ph2:
-        c = r[9] > 0
+        c = r[9] < NEAR_STRAIGHT
         if cur is None: cur = c
         if c != cur:
             spans[cur].append((t_start, r[0])); cur, t_start = c, r[0]
@@ -226,16 +257,16 @@ def panel(ox, sh, cons, gen):
     tb = t1 * 0.35
     g.append(banner("At rest: the PGF pushes the air from the HIGH towards the LOW", [(0.0, tb)]))
     g.append(banner(f"Moving air feels Coriolis, which turns it to the {turn}", [(tb, t1)]))
-    g.append(banner(f"Straight isobars: PGF = Coriolis → geostrophic wind, LOW on its {side}", spans[False]))
-    g.append(banner(f"Curved isobars: PGF > Coriolis → turns {rot} round the LOW (gradient wind)", spans[True]))
+    g.append(banner(f"Nearly straight isobars: PGF ≈ Coriolis → geostrophic wind, LOW on its {side}", spans[False]))
+    g.append(banner(f"Curved isobars: PGF > Coriolis → the air turns {rot} round the LOW (gradient wind)", spans[True]))
     bx, by = ox + PW / 2, H - 48
     g.append(f'<rect x="{bx-178}" y="{by-19}" width="356" height="38" rx="19" fill="#ffffff" stroke="#d9d3c3"/>')
     g.append(f'<g transform="translate({bx-150},{by})"><ellipse rx="12" ry="7.5" fill="#cfd8e3"/><circle cy="-1" r="5" fill="#f2b632"/>'
              f'<line x1="0" y1="22" x2="0" y2="11" stroke="#7d93ab" stroke-width="3" marker-end="url(#ag)"/></g>')
     g.append(T(bx + 12, by + 5.5, f"Back to the wind: LOW on your {side}", "lbl", "middle"))
 
-    st = [math.hypot(r[7], r[8]) / math.hypot(r[5], r[6]) for r in ph2 if r[9] == 0]
-    cu = [math.hypot(r[7], r[8]) / math.hypot(r[5], r[6]) for r in ph2 if r[9] > 5e-3]
+    st = [math.hypot(r[7], r[8]) / math.hypot(r[5], r[6]) for r in ph2 if r[9] >= NEAR_STRAIGHT]
+    cu = [math.hypot(r[7], r[8]) / math.hypot(r[5], r[6]) for r in ph2 if r[9] < NEAR_STRAIGHT]
     print(("SH" if sh else "NH"), f"adjust {t1:.1f}s, loop {t_end - t1:.1f}s · Coriolis/PGF straight {np.mean(st):.3f}, "
           f"bends {min(cu):.2f}-{max(cu):.2f} · start {ph1[0][1]:.0f},{ph1[0][2]:.0f}")
     return "".join(g)
