@@ -1,6 +1,6 @@
 /* Offline support. Online: always fetch the latest files (revalidated, so unchanged files are cheap)
    and keep a copy. Offline: serve the saved copy. Images, which never change, are served from the copy first. */
-const CACHE = "atpl-v14";
+const CACHE = "atpl-v15";
 const SHELL = ["./", "index.html", "app.css", "app.js", "data/subjects.json", "manifest.webmanifest", "icons/icon-192.png"];
 
 self.addEventListener("install", (e) => {
