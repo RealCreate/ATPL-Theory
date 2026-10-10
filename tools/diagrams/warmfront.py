@@ -209,7 +209,9 @@ for km in (-200, 0, 300, 600, 900):
               + T(x, HDR + SH + 24, ("+" if km > 0 else "") + f"{km} km", "axd", "middle"))
 
 trop_y = Y0 + yh(11)
-semis = "".join(f'<path d="M{xk(k)-7:.1f},{Y0+G+1:.1f} a7,7 0 0 1 14,0 z" class="wf"/>' for k in (-55, -25, 5, 35))
+# surface front = the single point where the frontal surface meets the ground (x = 0 km)
+semis = (f'<circle cx="{xk(0):.1f}" cy="{Y0+G:.1f}" r="5.5" class="wf" stroke="#fff" stroke-width="2"/>'
+         f'<line x1="{xk(0):.1f}" y1="{Y0+G+7:.1f}" x2="{xk(0):.1f}" y2="{Y0+G+15:.1f}" stroke="#fff" stroke-width="1.5"/>')
 
 svg = f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-label="Warm front vertical cross-section">
 <title>Warm front · vertical cross-section</title>
@@ -258,7 +260,6 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org
   {T(W-30, trop_y-8, "Tropopause ≈ 11 km", "sm", "end", 'opacity=".85"')}
   {"".join(f'<polyline points="{pts(s)}" class="flow flow{i+1}" marker-end="url(#ah)"/>' for i, s in enumerate(streams))}
   <line x1="{fx0:.1f}" y1="{fy0:.1f}" x2="{fx1:.1f}" y2="{fy1:.1f}" class="fs"/>
-  <line x1="{xk(-70):.1f}" y1="{Y0+G+1:.1f}" x2="{xk(55):.1f}" y2="{Y0+G+1:.1f}" class="wfl"/>
   {semis}
   {"".join(ticks)}
   {T(xk(-270), Y0+yh(8.6), "WARM AIR (mT)", "big")}
@@ -279,8 +280,8 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org
   {T(xk(420), Y0+yh(2.15), "FZRA risk where rain falls into", "sm", "middle")}
   {T(xk(420), Y0+yh(2.15)+16, "sub-zero air in the wedge", "sm", "middle")}
   <g transform="translate({(fx0+fx1)/2+40:.1f},{(fy0+fy1)/2+22:.1f}) rotate({ang:.2f})">{T(0, 0, "Frontal surface · slope ≈ 1:150", "sm", "middle")}</g>
-  <g class="mvp"><line x1="{xk(70):.1f}" y1="{Y0+G-14:.1f}" x2="{xk(118):.1f}" y2="{Y0+G-14:.1f}" class="mv" marker-end="url(#aw)"/></g>
-  {T(xk(-12), Y0+G+30, "Surface warm front", "lbl", "middle")}
+  <g class="mvp"><line x1="{xk(88):.1f}" y1="{Y0+G+27:.1f}" x2="{xk(132):.1f}" y2="{Y0+G+27:.1f}" class="mv" marker-end="url(#aw)"/></g>
+  {T(xk(0), Y0+G+32, "Surface warm front", "lbl", "middle")}
 </g>
 <line x1="0" y1="{HDR+SH}" x2="{W}" y2="{HDR+SH}" stroke="#e5e7eb"/>
 {"".join(xt)}
