@@ -210,8 +210,8 @@ for km in (-200, 0, 300, 600, 900):
 
 trop_y = Y0 + yh(11)
 # surface front = the single point where the frontal surface meets the ground (x = 0 km)
-semis = (f'<circle cx="{xk(0):.1f}" cy="{Y0+G:.1f}" r="5.5" class="wf" stroke="#fff" stroke-width="2"/>'
-         f'<line x1="{xk(0):.1f}" y1="{Y0+G+7:.1f}" x2="{xk(0):.1f}" y2="{Y0+G+15:.1f}" stroke="#fff" stroke-width="1.5"/>')
+semis = (f'<line x1="{xk(-24):.1f}" y1="{Y0+G:.1f}" x2="{xk(24):.1f}" y2="{Y0+G:.1f}" class="wfl"/>'
+         + "".join(f'<path d="M{xk(k)-6:.1f},{Y0+G-1:.1f} a6,6 0 0 1 12,0 z" class="wf"/>' for k in (-14, 0, 14)))
 
 svg = f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-label="Warm front vertical cross-section">
 <title>Warm front · vertical cross-section</title>
